@@ -18,7 +18,7 @@ import pickle
 
 
 def load_data():
-    """Load data """
+    """Load data from csv"""
 
     path = os.path.join("data", "dataset.csv")
     df_data = pd.read_csv(path, sep=';')
@@ -30,13 +30,14 @@ def load_data():
 
 
 def data_preprosessing_missing(data):
+    """returns dataframe without missing values"""
+
     # missing values
     percent_missing = round(data.isnull().sum()/len(data) * 100, 2)
     missing_value_df = pd.DataFrame({'column_name': data.columns,
                                      'percent_missing': percent_missing})
     # delete columns where missing data > 50%
-    col_to_delete = missing_value_df[missing_value_df['percent_missing'] > 50].index.to_list(
-    )
+    col_to_delete = missing_value_df[missing_value_df['percent_missing'] > 49].index.to_list()
 
     np.savetxt(os.path.join("modelling", "removed_col_50_pct.csv"),
                col_to_delete,
@@ -44,19 +45,23 @@ def data_preprosessing_missing(data):
                fmt='% s')
 
     data = data.drop(col_to_delete, axis=1)
+    print("Removed columns with missing data > 50%:{}".format(col_to_delete))
 
-    # delete entries where missing data < 30%
     missing_30_pct = missing_value_df[(missing_value_df['percent_missing'] > 0) & (
         missing_value_df['percent_missing'] < 30)].index.to_list()
 
-    data = data.dropna()
+    # delete entries where missing data < 30%
+    # data = data.dropna()
+
+    # imput median where missing data <30%
+    for col in missing_30_pct:
+        data[col].fillna((data[col].median()), inplace=True)
 
     return data
 
 
 def data_preprosessing_collinearity(X, y, corr_threshold):
-
-    # corr = X.select_dtypes(include=["number"]).corr()
+    """returns dataframe with eliminated correlated features"""
 
     selector = SelectNonCollinear(correlation_threshold=corr_threshold)
 
@@ -96,6 +101,7 @@ def data_preprosessing_scaler(X):
 
 
 def data_preprosessing_onehot(X):
+    """returns dataframe with Onehot encoded categorical variables"""
 
     categorical_col = X.select_dtypes(include=["object"]).columns.to_list()
     X_categorical = X[categorical_col]
@@ -116,6 +122,7 @@ def data_preprosessing_onehot(X):
 
 
 def data_preprosessing_oversampling(X, y):
+    """returns oversampled dataset and balanced target feature labels"""
 
     # transform the dataset
     oversample = SMOTE(random_state=101)
@@ -138,12 +145,14 @@ def train_model_rf(X, y):
 
 
 def data_preprosessing(data, corr_threshold):
+    """prepares data for input to model, returns transformend dataframe"""
 
     # missing data
     data = data_preprosessing_missing(data)
 
     X = data.drop(["uuid", "default"], axis=1)
     y = data[["default"]]
+
     # remove collinearity
     X, y = data_preprosessing_collinearity(X, y, corr_threshold)
     # onehot encoder
@@ -171,9 +180,15 @@ def data_prep_predict(data, target, selected_features, categorical_features):
     data[data[selected_features].isnull().any(axis=1)].to_csv(os.path.join(
         "predict", 'required_columns_values_missing.csv'))
 
-    data.dropna(subset=selected_features, inplace=True)
+    # data.dropna(subset=selected_features, inplace=True)
 
-
+    # imput median where missing data <30%
+    for col in selected_features:
+        if data[col].isnull().sum() != 0:
+            data[col] = data[col].fillna(data[col].median())
+    
+    selected_features.append('uuid')
+    
     # filter selected features
     data = data[selected_features]
 
@@ -183,7 +198,8 @@ def data_prep_predict(data, target, selected_features, categorical_features):
     encoder = pickle.load(open(os.path.join("modelling", "one_hot_encoder.pkl"), 'rb'))
     data_one_hot = encoder.transform(df_categorical)
     df_data_one_hot = pd.DataFrame(data_one_hot.toarray())
-    data_last = pd.concat([data.drop(categorical_features, axis=1),  df_data_one_hot], axis=1)
+    data_last = pd.concat([data.drop(categorical_features, axis = 1), 
+                            df_data_one_hot.set_index(data.index)],axis=1)
 
     return data_last
 
