@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  predict_pd:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    image: predict_pd:0.1.0
+    container_name: predict_pd
+    restart: always
+    ports:
+      - '5000:5000'
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: 50m

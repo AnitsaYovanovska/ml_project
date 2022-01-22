@@ -7,7 +7,8 @@ from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_validate
 from sklearn.ensemble import RandomForestClassifier
 import pickle
-
+import json
+import sys
 # import seaborn as sns
 # import matplotlib.pyplot as plt
 # import plotly.graph_objects as go
@@ -204,7 +205,7 @@ def data_prep_predict(data, target, selected_features, categorical_features):
     return data_last
 
 
-def predict_default(data_last):
+def predict_default(data_last, param):
     """function to predict the probability of default and write the result to prediction_default.csv file"""
 
     # load trained model
@@ -217,8 +218,48 @@ def predict_default(data_last):
     else:
         data_last['pd_prediction'] = rf_clf.predict(data_last)
         df_predicted = data_last['pd_prediction']
+    
+    if param == 'all':
+        df_predicted.to_csv(os.path.join("predict",'prediction_default.csv'))
+        print('Check predicted pd in: ../predict/prediction_default.csv')
 
-    df_predicted.to_csv(os.path.join("predict",'prediction_default.csv'))
+    elif param == 'api':
+        return df_predicted.to_dict(orient='index')[0]
 
-    print('Check predicted pd in: ../predict/prediction_default.csv')
+
+def json_api_to_dataframe(json_dict):
+    """convert json to pandas dataframe for model input"""
+    # data = json.loads(json_dict)
+    df_to_predict = pd.DataFrame([json_dict])
+    
+    return df_to_predict
+
+
+def predict_default_api(df_to_predict):
+    """function to predict the probability of default and write the result to prediction_default.csv file"""
+
+    # load trained model
+    rf_clf = pickle.load(open(os.path.join("modelling", "rf_clf_model.pkl"), 'rb'))
+
+    predicted_pd = rf_clf.predict(df_to_predict)
+
+    return {"predicted_pd": predicted_pd[0]}
+
+
+def load_config_file():
+    """load json file with model specific parameters"""
+    # load config file
+    try:
+        with open("model_config.json") as json_file:
+            model_config = json.load(json_file)
+    except FileNotFoundError as f_error:
+        print(f_error)
+        sys.exit(f"Can't open file : model_config.json")
+
+    target = model_config["target"]
+    selected_features = model_config["selected_features"]
+    categorical_features = model_config["categorical_features"]
+    corr_threshold = model_config["corr_threshold"]
+
+    return target, selected_features, categorical_features, corr_threshold
 
