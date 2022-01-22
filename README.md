@@ -9,11 +9,10 @@ Implementation of a supervised learning model to predict the probability of defa
 
 ### Train model
 
-To train the model first install the requirements and then execute main.py script
+To train the model and predict the probability of default for the data points in dataset where "default" values are missing, first install the requirements and then execute main.py script:
 ```
 python main.py
 ```
-Predict 10000
 ### API
 Model is exposed through api using flask.
 To start the app, we run:
